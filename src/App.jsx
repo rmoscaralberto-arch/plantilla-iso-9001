@@ -1,32 +1,66 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Save, Trash2, Printer, BookOpen, FileText, Plus, X,
-  Settings, Target, Briefcase, Wrench, AlertCircle,
-  MousePointerClick, LayoutDashboard, Layers, Users, Smile, ChevronRight
+  Save, 
+  Trash2, 
+  Printer, 
+  BookOpen, 
+  FileText, 
+  Plus, 
+  X,
+  Settings,
+  Target,
+  Briefcase,
+  Wrench,
+  AlertCircle,
+  MousePointerClick,
+  LayoutDashboard,
+  Layers,
+  Users,
+  Smile,
+  ChevronRight
 } from 'lucide-react';
 
-// --- CONFIGURACIÓN DE DATOS INICIALES ---
+// --- DATOS INICIALES ---
 const defaultProcesses = {
-  strategic: [{ id: 's1', name: 'Planeación' }, { id: 's2', name: 'Gestión de Calidad' }],
-  mission: [{ id: 'm1', name: 'Ventas y Mercadeo' }, { id: 'm2', name: 'Producción y Prestación' }],
-  support: [{ id: 'sup1', name: 'Recursos Humanos' }, { id: 'sup2', name: 'Compras' }]
+  strategic: [
+    { id: 's1', name: 'Planeación' },
+    { id: 's2', name: 'Gestión de Calidad' }
+  ],
+  mission: [
+    { id: 'm1', name: 'Ventas y Mercadeo' },
+    { id: 'm2', name: 'Producción y Prestación' }
+  ],
+  support: [
+    { id: 'sup1', name: 'Recursos Humanos' },
+    { id: 'sup2', name: 'Compras' }
+  ]
 };
 
-const defaultRow = () => ({
-  id: crypto.randomUUID(), providers: '', inputs: '', activity: '', outputs: '', clients: '', resources: ''
+const defaultCharacterizationRow = () => ({
+  id: crypto.randomUUID(),
+  inputs: '',
+  providers: '',
+  activity: '',
+  outputs: '',
+  clients: '',
+  resources: ''
 });
 
-const getEmptyDetails = () => ({
-  objective: '', owner: '', indicators: '',
-  characterization: { 
-    plan: [defaultRow()], 
-    do: [defaultRow()], 
-    check: [defaultRow()], 
-    act: [defaultRow()] 
+const getEmptyProcessDetails = () => ({
+  objective: '',
+  owner: '',
+  indicators: '',
+  characterization: {
+    plan: [defaultCharacterizationRow()],
+    do: [defaultCharacterizationRow()],
+    check: [defaultCharacterizationRow()],
+    act: [defaultCharacterizationRow()]
   }
 });
 
 export default function App() {
+  // --- ESTADOS ---
+  const [view, setView] = useState('template'); 
   const [companyName, setCompanyName] = useState('Nombre de la Empresa');
   const [processes, setProcesses] = useState(defaultProcesses);
   const [selectedProcessId, setSelectedProcessId] = useState('s1');
@@ -35,48 +69,61 @@ export default function App() {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printMode, setPrintMode] = useState('normal'); 
 
-  // Cargar datos al iniciar
+  // --- PERSISTENCIA LOCAL ---
   useEffect(() => {
-    const saved = localStorage.getItem('sgc_iso9001_vfinal');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setCompanyName(parsed.companyName || 'Nombre de la Empresa');
-      setProcesses(parsed.processes || defaultProcesses);
-      setProcessDetails(parsed.processDetails || {});
-      setSelectedProcessId(parsed.selectedProcessId || 's1');
+    const savedData = localStorage.getItem('iso9001_v3_production');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        if (parsed.companyName) setCompanyName(parsed.companyName);
+        if (parsed.processes) setProcesses(parsed.processes);
+        if (parsed.processDetails) setProcessDetails(parsed.processDetails);
+        if (parsed.selectedProcessId) setSelectedProcessId(parsed.selectedProcessId);
+      } catch (e) { console.error("Error cargando datos localmente", e); }
     } else {
-      const init = {};
-      Object.values(defaultProcesses).flat().forEach(p => init[p.id] = getEmptyDetails());
-      setProcessDetails(init);
+      const initialDetails = {};
+      Object.values(defaultProcesses).flat().forEach(p => {
+        initialDetails[p.id] = getEmptyProcessDetails();
+      });
+      setProcessDetails(initialDetails);
     }
   }, []);
 
-  const save = () => {
-    localStorage.setItem('sgc_iso9001_vfinal', JSON.stringify({ companyName, processes, processDetails, selectedProcessId }));
-    setNotification('✅ Guardado en este navegador');
-    setTimeout(() => setNotification(''), 3000);
-  };
+  // --- MOTOR DE IMPRESIÓN (VENTANA AISLADA) ---
+  const triggerPrintPopup = () => {
+    const printContent = document.getElementById('isolated-print-root');
+    if (!printContent) return;
 
-  // Lógica de impresión
-  const triggerPrint = () => {
-    const content = document.getElementById('isolated-print-root');
     const popup = window.open('', '_blank');
-    if (!popup) return alert("Por favor permite las ventanas emergentes.");
+    if (!popup) {
+      alert("⚠️ Tu navegador bloqueó la ventana de impresión. Por favor, permite las ventanas emergentes.");
+      setPrintMode('normal');
+      return;
+    }
+
     popup.document.write(`
-      <html>
+      <!DOCTYPE html>
+      <html lang="es">
         <head>
-          <title>SGC - ${companyName}</title>
-          <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+          <title>ISO 9001 - ${companyName}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
           <style>
             @page { size: letter landscape; margin: 1cm; }
-            body { font-family: sans-serif; -webkit-print-color-adjust: exact !important; }
-            .avoid-break { break-inside: avoid; page-break-inside: avoid; margin-bottom: 20px; }
+            body { 
+              background-color: white; 
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
             .page-break { page-break-before: always; }
+            .avoid-break { break-inside: avoid; page-break-inside: avoid; }
+            .print-page-container { width: 100%; max-width: 25.94cm; margin: 0 auto; }
           </style>
         </head>
-        <body class="p-8">
-          ${content.innerHTML}
-          <script>setTimeout(() => { window.print(); window.close(); }, 700);</script>
+        <body>
+          <div class="p-4 font-sans text-sm">${printContent.innerHTML}</div>
+          <script>
+            setTimeout(() => { window.focus(); window.print(); }, 1000);
+          </script>
         </body>
       </html>
     `);
@@ -84,169 +131,316 @@ export default function App() {
     setPrintMode('normal');
   };
 
-  useEffect(() => { if (printMode !== 'normal') triggerPrint(); }, [printMode]);
+  useEffect(() => {
+    if (printMode !== 'normal') {
+      const timer = setTimeout(() => triggerPrintPopup(), 150);
+      return () => clearTimeout(timer);
+    }
+  }, [printMode]);
 
-  // Handlers para edición
+  // --- HANDLERS ---
+  const saveData = () => {
+    const dataToSave = { companyName, processes, processDetails, selectedProcessId };
+    localStorage.setItem('iso9001_v3_production', JSON.stringify(dataToSave));
+    showNotification('Información guardada localmente.');
+  };
+
+  const clearData = () => {
+    if (window.confirm('¿Borrar toda la información? Esta acción no se puede deshacer.')) {
+      setCompanyName('Nombre de la Empresa');
+      setProcesses(defaultProcesses);
+      const initialDetails = {};
+      Object.values(defaultProcesses).flat().forEach(p => {
+        initialDetails[p.id] = getEmptyProcessDetails();
+      });
+      setProcessDetails(initialDetails);
+      setSelectedProcessId('s1');
+      localStorage.removeItem('iso9001_v3_production');
+      showNotification('Sistema reiniciado.');
+    }
+  };
+
+  const showNotification = (msg) => {
+    setNotification(msg);
+    setTimeout(() => setNotification(''), 3000);
+  };
+
+  const handleProcessChange = (category, id, newName) => {
+    setProcesses(prev => ({
+      ...prev,
+      [category]: prev[category].map(p => p.id === id ? { ...p, name: newName } : p)
+    }));
+  };
+
+  const addProcess = (category) => {
+    const newId = crypto.randomUUID();
+    setProcesses(prev => ({
+      ...prev,
+      [category]: [...prev[category], { id: newId, name: 'Nuevo Proceso' }]
+    }));
+    setProcessDetails(prev => ({ ...prev, [newId]: getEmptyProcessDetails() }));
+    setSelectedProcessId(newId);
+  };
+
+  const removeProcess = (category, id, e) => {
+    e.stopPropagation();
+    if (window.confirm('¿Eliminar este proceso y su caracterización?')) {
+      setProcesses(prev => ({
+        ...prev,
+        [category]: prev[category].filter(p => p.id !== id)
+      }));
+      setProcessDetails(prev => {
+        const n = { ...prev }; delete n[id]; return n;
+      });
+      if (selectedProcessId === id) setSelectedProcessId(null);
+    }
+  };
+
+  const handleDetailChange = (pId, field, value) => {
+    if (!pId) return;
+    setProcessDetails(prev => ({
+      ...prev,
+      [pId]: { ...(prev[pId] || getEmptyProcessDetails()), [field]: value }
+    }));
+  };
+
   const handleCharChange = (pId, phase, rowId, field, value) => {
     setProcessDetails(prev => {
-      const proc = prev[pId] || getEmptyDetails();
-      const nPhase = proc.characterization[phase].map(r => r.id === rowId ? {...r, [field]: value} : r);
+      const proc = prev[pId] || getEmptyProcessDetails();
+      const nPhase = proc.characterization[phase].map(r => r.id === rowId ? { ...r, [field]: value } : r);
       return { ...prev, [pId]: { ...proc, characterization: { ...proc.characterization, [phase]: nPhase } } };
     });
   };
 
-  const addRow = (pId, phase) => {
+  const addCharRow = (pId, phase) => {
     setProcessDetails(prev => {
-      const proc = prev[pId] || getEmptyDetails();
-      return { ...prev, [pId]: { ...proc, characterization: { ...proc.characterization, [phase]: [...proc.characterization[phase], defaultRow()] } } };
+      const proc = prev[pId] || getEmptyProcessDetails();
+      return { ...prev, [pId]: { ...proc, characterization: { ...proc.characterization, [phase]: [...proc.characterization[phase], defaultCharacterizationRow()] } } };
     });
   };
 
-  // --- COMPONENTES DE INTERFAZ ---
-  const renderTable = (phaseKey, title, colorClass) => {
-    const details = processDetails[selectedProcessId] || getEmptyDetails();
-    return (
-      <div className="mb-8 border rounded-xl overflow-hidden shadow-sm bg-white">
-        <div className={`p-3 font-bold uppercase flex justify-between items-center ${colorClass}`}>
-          <span>{title}</span>
-          <button onClick={() => addRow(selectedProcessId, phaseKey)} className="bg-white/50 px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-white">
-            <Plus size={14}/> Fila
-          </button>
+  const removeCharRow = (pId, phase, rowId) => {
+    setProcessDetails(prev => {
+      const proc = prev[pId];
+      return { ...prev, [pId]: { ...proc, characterization: { ...proc.characterization, [phase]: proc.characterization[phase].filter(r => r.id !== rowId) } } };
+    });
+  };
+
+  const getSelectedProcessName = () => {
+    if (!selectedProcessId) return '';
+    for (const cat in processes) {
+      const f = processes[cat].find(p => p.id === selectedProcessId);
+      if (f) return f.name;
+    }
+    return '';
+  };
+
+  // --- RENDERIZADORES DE PANTALLA ---
+  const renderScreenProcessBlock = ({ title, category, icon: Icon, colorClass, highlightClass }) => (
+    <div className={`p-4 rounded-xl border-2 ${colorClass} bg-white shadow-sm w-full`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 font-bold text-gray-700">
+          <Icon size={20} /> <h3 className="uppercase tracking-wider text-sm">{title}</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                {['1. Proveedor','2. Entradas','3. Actividad','4. Salidas','5. Clientes','6. Recursos'].map(h => (
-                  <th key={h} className="p-2 border-r font-bold text-gray-600">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {details.characterization[phaseKey].map(row => (
-                <tr key={row.id} className="border-b last:border-0">
-                  {['providers','inputs','activity','outputs','clients','resources'].map(f => (
-                    <td key={f} className="p-0 border-r last:border-0">
-                      <textarea 
-                        className="w-full p-2 outline-none resize-none min-h-[80px] focus:bg-blue-50"
-                        value={row[f]}
-                        onChange={(e) => handleCharChange(selectedProcessId, phaseKey, row.id, f, e.target.value)}
-                      />
-                    </td>
-                  ))}
-                </tr>
+        <button onClick={() => addProcess(category)} className="p-1 hover:bg-gray-100 rounded text-gray-500"><Plus size={16} /></button>
+      </div>
+      <div className="flex flex-wrap gap-2 justify-center">
+        {processes[category].map(p => {
+          const isSelected = selectedProcessId === p.id;
+          return (
+            <div key={p.id} onClick={() => setSelectedProcessId(p.id)} className={`group relative flex items-center border rounded-lg p-2 min-w-[150px] cursor-pointer transition-all ${isSelected ? `ring-2 ring-offset-1 ${highlightClass} bg-slate-50 border-transparent` : 'bg-white border-gray-200'}`}>
+              <input type="text" value={p.name} onChange={(e) => handleProcessChange(category, p.id, e.target.value)} className={`bg-transparent text-center text-sm font-medium w-full focus:outline-none ${isSelected ? 'text-blue-900 font-bold' : 'text-gray-800'}`} />
+              <button onClick={(e) => removeProcess(category, p.id, e)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100"><X size={12} /></button>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  );
+
+  const renderScreenForm = ({ pId, pName, details }) => {
+    const renderPhase = (phaseKey, title, colorCode) => (
+      <div className="mb-8">
+        <div className={`flex items-center justify-between p-3 rounded-t-lg bg-${colorCode}-100 border border-${colorCode}-200`}>
+          <h4 className={`font-bold text-${colorCode}-800 uppercase`}>{title}</h4>
+          <button onClick={() => addCharRow(pId, phaseKey)} className={`text-${colorCode}-700 hover:bg-${colorCode}-200 p-1 rounded text-sm flex items-center gap-1`}><Plus size={16} /> Fila</button>
+        </div>
+        <div className="border-x border-b border-gray-200 rounded-b-lg overflow-hidden bg-white">
+          <div className="grid grid-cols-6 bg-gray-100 border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase text-center">
+            {['1. Proveedor','2. Entradas','3. Actividad','4. Salidas','5. Clientes','6. Recursos'].map(h => <div key={h} className="p-2 border-r last:border-0">{h}</div>)}
+          </div>
+          {details.characterization[phaseKey].map(row => (
+            <div key={row.id} className="grid grid-cols-6 border-b last:border-0 relative group">
+              {['providers','inputs','activity','outputs','clients','resources'].map(f => (
+                <div key={f} className="border-r last:border-0">
+                  <textarea className="w-full p-2 text-sm resize-none focus:outline-none min-h-[80px]" value={row[f]} onChange={(e) => handleCharChange(pId, phaseKey, row.id, f, e.target.value)} />
+                </div>
               ))}
-            </tbody>
-          </table>
+              {details.characterization[phaseKey].length > 1 && <button onClick={() => removeCharRow(pId, phaseKey, row.id)} className="absolute right-1 top-1 text-red-400 group-hover:text-red-600"><Trash2 size={14} /></button>}
+            </div>
+          ))}
         </div>
       </div>
     );
+
+    return (
+      <section className="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-blue-500 mt-4">
+        <h2 className="text-2xl font-bold text-slate-800 border-b pb-2 mb-6">Caracterización: <span className="text-blue-600">{pName}</span></h2>
+        <div className="grid grid-cols-2 gap-6 mb-8">
+          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+            <h4 className="font-bold text-slate-800 uppercase mb-2 text-sm">Objetivo</h4>
+            <textarea className="w-full p-2 text-sm bg-white border rounded min-h-[60px]" value={details.objective} onChange={(e) => handleDetailChange(pId, 'objective', e.target.value)} />
+          </div>
+          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+            <h4 className="font-bold text-slate-800 uppercase mb-2 text-sm">Responsable</h4>
+            <input type="text" className="w-full p-2 text-sm bg-white border rounded" value={details.owner} onChange={(e) => handleDetailChange(pId, 'owner', e.target.value)} />
+          </div>
+        </div>
+        {renderPhase('plan','Planear','blue')} {renderPhase('do','Hacer','emerald')}
+        {renderPhase('check','Verificar','amber')} {renderPhase('act','Actuar','red')}
+        <div className="mt-6"><h4 className="font-bold uppercase mb-2">Indicadores</h4><textarea className="w-full p-4 text-sm bg-gray-50 border rounded-lg min-h-[100px]" value={details.indicators} onChange={(e) => handleDetailChange(pId, 'indicators', e.target.value)} /></div>
+      </section>
+    );
   };
 
+  // --- RENDERIZADORES DE IMPRESIÓN ---
+  const renderPrintMap = () => (
+    <div className="w-full text-gray-800">
+      <div className="text-center border-b-2 border-blue-500 pb-4 mb-8">
+        <h1 className="text-3xl font-black uppercase mb-1">Enfoque a Procesos (ISO 9001:2015)</h1>
+        <div className="text-xl font-semibold text-blue-800">{companyName}</div>
+      </div>
+      <div className="flex flex-row gap-6 items-stretch justify-center w-full min-h-[450px]">
+        <div className="w-48 bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 flex flex-col justify-center items-center text-center relative shadow-sm">
+          <Users size={40} className="text-blue-600 mb-3" /> <h3 className="font-black text-blue-900 leading-tight">Requisitos del Cliente</h3><div className="absolute -right-6 top-1/2 -translate-y-1/2 text-blue-300"><ChevronRight size={48} /></div>
+        </div>
+        <div className="flex-1 flex flex-col justify-between gap-6">
+          {Object.entries({strategic:'Estratégicos', mission:'Misionales', support:'Apoyo'}).map(([k,v]) => (
+            <div key={k} className="p-4 rounded-xl border-2 bg-white text-center">
+              <div className="font-bold uppercase border-b pb-1 mb-2 text-sm text-gray-600">Procesos {v}</div>
+              <div className="flex flex-wrap gap-2 justify-center">{processes[k].map(p => <div key={p.id} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-1 font-bold text-gray-800 text-sm">{p.name}</div>)}</div>
+            </div>
+          ))}
+        </div>
+        <div className="w-48 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 flex flex-col justify-center items-center text-center relative shadow-sm">
+          <div className="absolute -left-6 top-1/2 -translate-y-1/2 text-emerald-300"><ChevronRight size={48} /></div>
+          <Smile size={40} className="text-emerald-600 mb-3" /> <h3 className="font-black text-emerald-900 leading-tight">Satisfacción del Cliente</h3>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPrintChar = (pId, pName, details) => (
+    <div className="w-full text-gray-800">
+      <div className="text-left border-b-2 border-gray-300 pb-3 mb-4">
+        <h1 className="text-2xl font-black uppercase mb-1">Enfoque a Procesos (ISO 9001) - {companyName}</h1>
+      </div>
+      <div className="mb-6 bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-center gap-2 avoid-break">
+        <span className="text-lg font-bold">Ficha: {pName}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-4 mb-6 avoid-break">
+        <div className="p-3 border rounded-lg bg-gray-50">
+          <h4 className="font-bold uppercase mb-1 text-xs">Objetivo</h4><div className="text-sm">{details.objective || '-'}</div>
+        </div>
+        <div className="p-3 border rounded-lg bg-gray-50">
+          <h4 className="font-bold uppercase mb-1 text-xs">Responsable</h4><div className="text-sm">{details.owner || '-'}</div>
+        </div>
+      </div>
+      {['plan','do','check','act'].map(k => (
+        <div key={k} className="mb-6 avoid-break shadow-sm rounded-lg overflow-hidden border border-gray-200">
+          <div className={`font-bold uppercase p-2 text-xs bg-gray-100 border-b`}>{k}</div>
+          <div className="grid grid-cols-6 bg-gray-50 border-b text-[9px] font-bold text-center">
+            {['1. Proveedor','2. Entradas','3. Actividad','4. Salidas','5. Clientes','6. Recursos'].map(h => <div key={h} className="p-1 border-r last:border-0">{h}</div>)}
+          </div>
+          {details.characterization[k].map(r => (
+            <div key={r.id} className="grid grid-cols-6 border-b last:border-0 text-[10px] bg-white">
+              {['providers','inputs','activity','outputs','clients','resources'].map(f => <div key={f} className="p-2 border-r last:border-0 whitespace-pre-wrap">{r[f] || '-'}</div>)}
+            </div>
+          ))}
+        </div>
+      ))}
+      <div className="mt-4 border p-3 rounded-lg bg-gray-50 avoid-break"><h4 className="font-bold uppercase mb-1 text-xs">Indicadores</h4><div className="text-sm">{details.indicators || '-'}</div></div>
+    </div>
+  );
+
+  const isMac = typeof window !== 'undefined' && navigator.userAgent.toUpperCase().includes('MAC');
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20 font-sans">
-      <nav className="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-xl">
-        <div className="flex items-center gap-2"><Settings className="text-blue-400" /><h1 className="font-bold">ISO 9001 - Escuela Virtual</h1></div>
-        <div className="flex gap-2">
-          {notification && <span className="text-xs text-emerald-400 self-center">{notification}</span>}
-          <button onClick={save} className="bg-blue-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-blue-500 transition-all"><Save size={16}/> Guardar</button>
-          <button onClick={() => setShowPrintModal(true)} className="bg-emerald-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-emerald-500 transition-all"><Printer size={16}/> Exportar PDF</button>
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-800 pb-12">
+      {showPrintModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100]">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
+            <h3 className="text-xl font-bold mb-4">Exportar PDF</h3>
+            <div className="space-y-3">
+              <button onClick={() => executePrint('map')} className="w-full flex items-center gap-4 p-4 border rounded-xl hover:bg-blue-50 transition-colors text-left group">
+                <LayoutDashboard className="text-blue-600" /> <div><h4 className="font-bold">Mapa de Procesos</h4><p className="text-sm text-gray-500">Solo el esquema visual.</p></div>
+              </button>
+              <button onClick={() => executePrint('current')} disabled={!selectedProcessId} className="w-full flex items-center gap-4 p-4 border rounded-xl hover:bg-emerald-50 transition-colors text-left group disabled:opacity-50">
+                <FileText className="text-emerald-600" /> <div><h4 className="font-bold">Ficha Seleccionada</h4><p className="text-sm text-gray-500">Caracterización de {getSelectedProcessName()}.</p></div>
+              </button>
+              <button onClick={() => executePrint('all')} className="w-full flex items-center gap-4 p-4 border rounded-xl hover:bg-indigo-50 transition-colors text-left group">
+                <Layers className="text-indigo-600" /> <div><h4 className="font-bold">Todo el Sistema</h4><p className="text-sm text-gray-500">Mapa + todas las fichas en hojas separadas.</p></div>
+              </button>
+            </div>
+            <div className="mt-6 text-right"><button onClick={() => setShowPrintModal(false)} className="px-4 py-2 text-gray-600">Cancelar</button></div>
+          </div>
         </div>
-      </nav>
+      )}
 
-      <main className="max-w-7xl mx-auto p-4 md:p-8">
-        <div className="text-center mb-10">
-          <input 
-            type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)}
-            className="text-4xl font-black uppercase tracking-tighter bg-transparent border-b-4 border-blue-500 focus:outline-none text-center w-full max-w-2xl py-2 mb-2"
-          />
-          <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Mapa de Procesos Estratégico</p>
+      {printMode !== 'normal' && (
+        <div className="fixed bottom-0 left-0 right-0 bg-amber-100 p-4 text-center z-[101] border-t border-amber-300">
+          Modo Impresión Activo. Si no abre, presiona <strong>{isMac ? 'Cmd + P' : 'Ctrl + P'}</strong>. 
+          <button onClick={() => setPrintMode('normal')} className="ml-4 bg-amber-600 text-white px-3 py-1 rounded">Cerrar</button>
+        </div>
+      )}
+
+      <div className="bg-slate-800 text-white p-4 sticky top-0 z-50 shadow-md flex justify-between items-center">
+        <div className="flex items-center gap-3"><Settings className="text-blue-400" /><h1 className="text-xl font-bold hidden sm:block">ISO 9001 - Escuela Virtual</h1></div>
+        <div className="flex items-center gap-2">
+          {notification && <span className="text-sm text-green-400">{notification}</span>}
+          <button onClick={saveData} className="bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-sm flex items-center gap-2"><Save size={16}/> Guardar</button>
+          <button onClick={() => setShowPrintModal(true)} className="bg-emerald-600 hover:bg-emerald-700 px-3 py-2 rounded text-sm flex items-center gap-2"><Printer size={16}/> Exportar</button>
+          <button onClick={clearData} className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded text-sm"><Trash2 size={16}/></button>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-4 sm:p-8">
+        <div className="text-center pb-4 mb-4">
+          <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tight mb-2">Enfoque a Procesos</h1>
+          <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="text-2xl font-semibold text-center text-blue-800 bg-transparent border-b-2 border-blue-500 focus:outline-none w-full max-w-lg" placeholder="Nombre de la Empresa" />
         </div>
 
-        {/* Mapa de Procesos Interactivo */}
-        <section className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 mb-10">
-          <div className="flex flex-col md:flex-row gap-6 justify-center items-stretch">
-            <div className="md:w-48 bg-slate-50 border-2 border-slate-200 rounded-2xl p-6 flex flex-col justify-center items-center text-center">
-              <Users size={40} className="text-blue-600 mb-2"/><h3 className="font-black text-xs uppercase">Requisitos</h3>
+        <section className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex flex-col md:flex-row gap-6 items-stretch justify-center">
+            <div className="md:w-48 bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 flex flex-col justify-center items-center text-center relative group">
+              <Users size={32} className="text-blue-600 mb-2" /><h3 className="font-black text-blue-900 text-sm">Entradas</h3>
+              <div className="hidden md:flex absolute -right-6 top-1/2 -translate-y-1/2 text-blue-300"><ChevronRight size={32} /></div>
             </div>
             <div className="flex-1 space-y-4">
-              {Object.entries(processes).map(([k, v]) => (
-                <div key={k} className="p-4 border-2 rounded-2xl bg-white border-slate-100 shadow-sm">
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 mb-2">{k}</h4>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {v.map(p => (
-                      <button 
-                        key={p.id} onClick={() => setSelectedProcessId(p.id)}
-                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border-2 
-                        ${selectedProcessId === p.id ? 'bg-blue-600 border-transparent text-white scale-105 shadow-lg' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}
-                      >
-                        {p.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+              {renderScreenProcessBlock({ title: "Estratégicos", category: "strategic", icon: Target, colorClass: "border-indigo-100", highlightClass: "ring-indigo-500" })}
+              {renderScreenProcessBlock({ title: "Misionales", category: "mission", icon: Briefcase, colorClass: "border-emerald-100", highlightClass: "ring-emerald-500" })}
+              {renderScreenProcessBlock({ title: "Apoyo", category: "support", icon: Wrench, colorClass: "border-orange-100", highlightClass: "ring-orange-500" })}
             </div>
-            <div className="md:w-48 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-6 flex flex-col justify-center items-center text-center">
-              <Smile size={40} className="text-emerald-600 mb-2"/><h3 className="font-black text-xs uppercase">Satisfacción</h3>
+            <div className="md:w-48 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 flex flex-col justify-center items-center text-center relative shadow-sm">
+              <div className="hidden md:flex absolute -left-6 top-1/2 -translate-y-1/2 text-emerald-300"><ChevronRight size={32} /></div>
+              <Smile size={32} className="text-emerald-600 mb-2" /><h3 className="font-black text-emerald-900 text-sm">Salidas</h3>
             </div>
           </div>
         </section>
 
-        {/* Caracterización PHVA */}
-        {selectedProcessId && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white rounded-3xl shadow-xl border border-slate-200 p-8 border-t-[12px] border-t-blue-600">
-              <h2 className="text-3xl font-black uppercase mb-6">Ficha de Proceso: <span className="text-blue-600">{
-                [...processes.strategic, ...processes.mission, ...processes.support].find(p => p.id === selectedProcessId)?.name
-              }</span></h2>
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="p-4 bg-slate-50 rounded-xl border">
-                  <label className="text-xs font-black uppercase text-slate-400 block mb-2">Objetivo</label>
-                  <textarea 
-                    className="w-full p-2 text-sm bg-white border rounded h-20"
-                    value={processDetails[selectedProcessId]?.objective || ''}
-                    onChange={(e) => updateDetail(selectedProcessId, 'objective', e.target.value)}
-                  />
-                </div>
-                <div className="p-4 bg-slate-50 rounded-xl border">
-                  <label className="text-xs font-black uppercase text-slate-400 block mb-2">Responsable</label>
-                  <input 
-                    className="w-full p-2 text-sm bg-white border rounded"
-                    value={processDetails[selectedProcessId]?.owner || ''}
-                    onChange={(e) => updateDetail(selectedProcessId, 'owner', e.target.value)}
-                  />
-                </div>
-              </div>
-              {renderTable('plan', 'Planear', 'bg-blue-100 text-blue-800')}
-              {renderTable('do', 'Hacer', 'bg-emerald-100 text-emerald-800')}
-              {renderTable('check', 'Verificar', 'bg-amber-100 text-amber-800')}
-              {renderTable('act', 'Actuar', 'bg-red-100 text-red-800')}
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* Contenedor Oculto para Impresión */}
-      <div id="isolated-print-root" style={{ display: 'none' }}>
-        <h1 className="text-4xl font-black uppercase text-center">{companyName}</h1>
-        <h2 className="text-xl font-bold text-center border-b-4 border-blue-600 mb-10 pb-4">Gestión por Procesos ISO 9001:2015</h2>
-        {/* Aquí se inyecta el mapa o la ficha seleccionada al imprimir */}
+        {selectedProcessId ? renderScreenForm({ pId: selectedProcessId, pName: getSelectedProcessName(), details: processDetails[selectedProcessId] || getEmptyProcessDetails() }) : <div className="p-12 text-center text-gray-400">Selecciona un proceso arriba</div>}
       </div>
 
-      {showPrintModal && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
-            <h3 className="text-2xl font-black uppercase mb-6">Exportar a PDF</h3>
-            <button onClick={() => setPrintMode('map')} className="w-full bg-blue-600 text-white p-4 rounded-2xl font-bold mb-4 hover:bg-blue-700 transition-all">Mapa Estratégico</button>
-            <button onClick={() => setShowPrintModal(false)} className="w-full text-slate-400 font-bold uppercase text-xs">Cerrar</button>
+      <div id="isolated-print-root" style={{ display: 'none' }}>
+        {printMode === 'map' && <div className="print-page-container">{renderPrintMap()}</div>}
+        {printMode === 'current' && selectedProcessId && <div className="print-page-container">{renderPrintChar(selectedProcessId, getSelectedProcessName(), processDetails[selectedProcessId] || getEmptyProcessDetails())}</div>}
+        {printMode === 'all' && (
+          <div>
+            <div className="print-page-container">{renderPrintMap()}</div>
+            {getAllProcessesInOrder().map(p => <div key={p.id} className="page-break print-page-container">{renderPrintChar(p.id, p.name, processDetails[p.id] || getEmptyProcessDetails())}</div>)}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
-
-  function updateDetail(pId, field, value) {
-    setProcessDetails(prev => ({ ...prev, [pId]: { ...(prev[pId] || getEmptyDetails()), [field]: value } }));
-  }
 }
