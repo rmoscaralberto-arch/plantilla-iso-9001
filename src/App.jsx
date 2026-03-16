@@ -96,7 +96,7 @@ export default function App() {
 
     const popup = window.open('', '_blank');
     if (!popup) {
-      alert("⚠️ Tu navegador bloqueó la ventana de impresión. Por favor, permite las ventanas emergentes.");
+      alert(" Tu navegador bloqueó la ventana de impresión. Por favor, permite las ventanas emergentes.");
       setPrintMode('normal');
       return;
     }
@@ -222,7 +222,7 @@ export default function App() {
   const removeCharRow = (pId, phase, rowId) => {
     setProcessDetails(prev => {
       const proc = prev[pId];
-      return { ...prev, [pId]: { ...proc, characterization: { ...proc.characterization, [phase]: proc.characterization[phase].filter(r => r.id !== rowId) } } };
+      return { ...prev, [pId]: { ...proc, characterization: { ...proc.characterization, [phase]: currentProc.characterization[phase].filter(r => r.id !== rowId) } } };
     });
   };
 
@@ -234,6 +234,12 @@ export default function App() {
     }
     return '';
   };
+
+  const getAllProcessesInOrder = () => [
+    ...processes.strategic,
+    ...processes.mission,
+    ...processes.support
+  ];
 
   // --- RENDERIZADORES DE PANTALLA ---
   const renderScreenProcessBlock = ({ title, category, icon: Icon, colorClass, highlightClass }) => (
@@ -298,7 +304,26 @@ export default function App() {
         </div>
         {renderPhase('plan','Planear','blue')} {renderPhase('do','Hacer','emerald')}
         {renderPhase('check','Verificar','amber')} {renderPhase('act','Actuar','red')}
-        <div className="mt-6"><h4 className="font-bold uppercase mb-2">Indicadores</h4><textarea className="w-full p-4 text-sm bg-gray-50 border rounded-lg min-h-[100px]" value={details.indicators} onChange={(e) => handleDetailChange(pId, 'indicators', e.target.value)} /></div>
+        <div className="mt-6">
+          <h4 className="font-bold uppercase mb-2">Indicadores</h4>
+          <textarea className="w-full p-4 text-sm bg-gray-50 border rounded-lg min-h-[100px]" value={details.indicators} onChange={(e) => handleDetailChange(pId, 'indicators', e.target.value)} />
+        </div>
+
+        {/* NOTAS FINALES AJUSTADAS */}
+        <div className="mt-8 p-4 bg-slate-50 border-l-4 border-slate-400 text-sm text-slate-600 rounded-r-lg space-y-2">
+          <p className="flex items-start gap-2">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            Los requisitos de la norma ISO 9001:2015 aplicables al proceso se pueden apreciar en la matriz de requisitos.
+          </p>
+          <p className="flex items-start gap-2">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            Los documentos del proceso pueden apreciarse en el listado de documentos correspondiente.
+          </p>
+          <p className="flex items-start gap-2">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            Los riesgos del proceso se encuentran en la matriz de riesgos respectiva.
+          </p>
+        </div>
       </section>
     );
   };
@@ -359,7 +384,16 @@ export default function App() {
           ))}
         </div>
       ))}
-      <div className="mt-4 border p-3 rounded-lg bg-gray-50 avoid-break"><h4 className="font-bold uppercase mb-1 text-xs">Indicadores</h4><div className="text-sm">{details.indicators || '-'}</div></div>
+      <div className="mt-4 border p-3 rounded-lg bg-gray-50 avoid-break">
+        <h4 className="font-bold uppercase mb-1 text-xs">Indicadores</h4><div className="text-sm">{details.indicators || '-'}</div>
+      </div>
+      
+      {/* NOTAS FINALES PARA PDF */}
+      <div className="mt-6 p-3 bg-slate-50 border-l-4 border-slate-400 text-[10px] text-slate-600 rounded-r-lg space-y-1 avoid-break">
+        <p>• Los requisitos de la norma ISO 9001:2015 aplicables al proceso se pueden apreciar en la matriz de requisitos.</p>
+        <p>• Los documentos del proceso pueden apreciarse en el listado de documentos correspondiente.</p>
+        <p>• Los riesgos del proceso se encuentran en la matriz de riesgos respectiva.</p>
+      </div>
     </div>
   );
 
@@ -443,4 +477,9 @@ export default function App() {
       </div>
     </div>
   );
+
+  function executePrint(mode) {
+    setShowPrintModal(false);
+    setPrintMode(mode);
+  }
 }
